@@ -19,6 +19,8 @@ void DistibutionOfPeople(std::vector<int> distribution, IDictionary<int, int>& d
 void output(int flag, std::vector<std::pair<std::string, std::vector<float>>> ColorMatrix, const std::vector<std::pair<std::string, IDictionary<int, int>>>& DictionaryMatrix);
 void menu(int& flag_check, std::vector<std::pair<std::string, std::vector<int>>>& DistributionMatrix);
 void FillMatrix(int size, int index, std::vector<std::pair<std::string, std::vector<int>>>& DistributionMatrix);
+void Draw(int& start, int size, int sq_cons, int flag, int shaderProgram, std::vector<std::pair<std::string, std::vector<float>>> ColorMatrix, const std::vector<std::pair<std::string, IDictionary<int, int>>>& DictionaryMatrix);
+void FillPartitionBoundaries(std::vector<std::pair<std::string, std::vector<int>>> DistributionMatrix,  std::vector<Person>& Persons);
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -40,8 +42,7 @@ const char *fragmentShaderSource = "#version 330 core\n"
 	"}\n\0";
 
 
-int main()
-{
+int main() {
     int square_number = 100;
     int sq_cons = square_number * square_number / 100;
     int size_v = square_number*square_number*6*3;
@@ -89,20 +90,6 @@ int main()
         {"Сиреневый", {0.46f, 0.41f, 0.65f}},
         {"Ламантин", {0.6f, 0.55f, 0.67f}}
     };
-
-    // std::vector<glm::vec3> Colors(5);
-    // Colors[0] = (glm::vec3(0.4f, 0.18f, 0.31f));
-    // Colors[1] = (glm::vec3(0.1f, 0.15f, 0.27f));
-    // Colors[2] = (glm::vec3(0.22f, 0.28f, 0.52f));
-    // Colors[3] = (glm::vec3(0.46f, 0.41f, 0.65f));
-    // Colors[4] = (glm::vec3(0.6f, 0.55f, 0.67f));
-
-    // std::vector<string> name_of_Colors(5);
-    // name_of_Colors[0] = "Пурпурный";
-    // name_of_Colors[1] = "Темно-cиний";
-    // name_of_Colors[2] = "Синий";
-    // name_of_Colors[3] = "Сиреневый";
-    // name_of_Colors[4] = "Ламантин"; 
 
     srand(time(NULL));
 
@@ -192,19 +179,17 @@ int main()
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
 
-
         std::vector<Person> Persons(size);
-        for (auto &person:Persons) {
-            person.SetInfo({rand()% 115, 90 + rand()% 120, 40 + rand()% 70});
-        }
 
         if (flag_check == 1) {
+            FillPartitionBoundaries(DistributionMatrix, Persons);
             for (int i = 0; i < DistributionMatrix.size(); i++) {
                 DistibutionOfPeople(DistributionMatrix[i].second, DictionaryMatrix[i].second, Persons, i);
             }
         }
 
         if (flag_check == 2) {
+            FillPartitionBoundaries(DistributionMatrix_1, Persons);
             for (int i = 0; i < DistributionMatrix.size(); i++) {
                 DistibutionOfPeople(DistributionMatrix_1[i].second, DictionaryMatrix[i].second, Persons, i);
             }
@@ -235,7 +220,7 @@ int main()
 
             glUseProgram(shaderProgram);
 
-            if (check%900 == 0) {
+            if (check%700 == 0) {
                 flag += 1;
                 if (flag == 3) 
                     flag = 0;
@@ -246,33 +231,13 @@ int main()
  
             }
 
-           
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.0f), glm::vec3(30.0f, -20.0f, 30.0f));
             int vertexModelLocation = glGetUniformLocation(shaderProgram, "model");
             glUniformMatrix4fv(vertexModelLocation, 1, GL_FALSE, glm::value_ptr(model));
 
-            int start = 0; 
-            for (int j = 0; j < DictionaryMatrix[0].second.GetSize() - 1; j++) {
-                int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
-                glUniform4f(vertexColorLocation, ColorMatrix[j].second[0], ColorMatrix[j].second[1], ColorMatrix[j].second[2], 1.0f);
-
-                if (flag == 0) {
-                    glDrawArrays(GL_TRIANGLES, start, start + 6 * sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100);
-                    start += 6*sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100;
-                }
-
-                if (flag == 1) {
-                    glDrawArrays(GL_TRIANGLES, start, start + 6 * sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100);
-                    start += 6*sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100;
-                }
-
-                if (flag == 2) {
-                    glDrawArrays(GL_TRIANGLES, start, start + 6 * sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100);
-                    start += 6*sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100;
-                }
-                
-            }
+            int start = 0;
+            Draw(start, size, sq_cons, flag, shaderProgram, ColorMatrix, DictionaryMatrix); 
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -287,7 +252,6 @@ int main()
     return 0;
 }
 
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -296,6 +260,32 @@ void processInput(GLFWwindow* window) {
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 }
+
+void Draw(int& start, int size, int sq_cons, int flag, int shaderProgram, std::vector<std::pair<std::string, std::vector<float>>> ColorMatrix, const std::vector<std::pair<std::string, IDictionary<int, int>>>& DictionaryMatrix) {
+    for (int j = 0; j < DictionaryMatrix[flag].second.GetSize() - 1; j++) {
+        int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
+        glUniform4f(vertexColorLocation, ColorMatrix[j].second[0], ColorMatrix[j].second[1], ColorMatrix[j].second[2], 1.0f);
+
+        glDrawArrays(GL_TRIANGLES, start, start + 6 * sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100);
+        start += 6*sq_cons*(DictionaryMatrix[flag].second.Get(j))/size*100;
+    }
+}
+
+void FillPartitionBoundaries(std::vector<std::pair<std::string, std::vector<int>>> DistributionMatrix,  std::vector<Person>& Persons) {
+    int first_age = DistributionMatrix[0].second[0];
+    int last_age = DistributionMatrix[0].second[sizeof(DistributionMatrix[0].second)/sizeof(int) -1] - first_age;
+
+    int first_height = DistributionMatrix[1].second[0];
+    int last_height =  DistributionMatrix[1].second[sizeof(DistributionMatrix[1].second)/sizeof(int) -1] - first_height;
+
+    int first_mass = DistributionMatrix[2].second[0];
+    int last_mass = DistributionMatrix[2].second[sizeof(DistributionMatrix[2].second)/sizeof(int) -1] - first_mass;
+
+        
+    for (auto &person:Persons) {
+        person.SetInfo({first_age + 1 + rand()% last_age - 1, first_height + 1 + rand()% last_height - 1, first_mass + 1 + rand()% last_mass - 1 });
+    }
+} 
 
 void output(int flag, std::vector<std::pair<std::string, std::vector<float>>> ColorMatrix, const std::vector<std::pair<std::string, IDictionary<int, int>>>& DictionaryMatrix) {
     std::cout << DictionaryMatrix[flag].first;
@@ -318,15 +308,15 @@ void menu(int& flag_check, std::vector<std::pair<std::string, std::vector<int>>>
         int size_height = 6;
         int size_mass = 6;
 
-        std::cout << "\nВ каждом разделе вам надо ввести 6 чисел для границ разбияения\n";
+        std::cout << "\nВ каждом разделе вам надо ввести 6 чисел для границ разбиения\n";
 
         std::cout << "Введите границы разбиения по возрасту\n";
         FillMatrix(size_age, 0, DistributionMatrix);
 
-        std::cout << "Введите границы разбиения по росту\n";
+        std::cout << "\nВведите границы разбиения по росту\n";
         FillMatrix(size_height, 1, DistributionMatrix);
 
-        std::cout << "Введите границы разбиения по весу\n";
+        std::cout << "\nВведите границы разбиения по весу\n";
         FillMatrix(size_mass, 2, DistributionMatrix);
 
     }
